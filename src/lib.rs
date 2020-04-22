@@ -1,8 +1,12 @@
 use crate::model::span;
 use opentelemetry::api;
 use opentelemetry::exporter::trace;
+use opentelemetry::sdk::trace::evicted_hash_map::EvictedHashMap;
 use std::any::Any;
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time;
 use serde_json;
 
 pub mod model;
@@ -16,6 +20,8 @@ pub struct Exporter {
 pub struct ExporterConfig {
     service_name: String,
     service_version: String,
+    trace_addr: SocketAddr,
+    global_tags: HashMap<String, String>,
 }
 
 impl ExporterConfig {
@@ -33,6 +39,20 @@ impl ExporterConfig {
         }
     }
 
+    pub fn with_trace_addr(self, trace_addr: SocketAddr) -> Self {
+        ExporterConfig {
+            trace_addr,
+            ..self
+        }
+    }
+
+    pub fn with_global_tags(self, global_tags: HashMap<String, String>) -> Self {
+        ExporterConfig {
+            global_tags,
+            ..self
+        }
+    }
+
     pub fn build(self) -> Exporter {
         Exporter {
             config: self,
@@ -45,13 +65,95 @@ impl Default for ExporterConfig {
         ExporterConfig {
             service_name: "DEFAULT".to_string(),
             service_version: "0.0.0".to_string(),
+            trace_addr: "127.0.0.1:8126".parse().unwrap(),
+            global_tags: HashMap::new(),
         }
     }
 }
 
+fn duration_to_ns(r: Result<time::Duration, time::SystemTimeError>) -> i64 {
+    match r {
+        Ok(d) => d.as_nanos().min(std::i64::MAX as u128) as i64,
+        Err(e) => -(e.duration().as_nanos().min(std::i64::MAX as u128) as i64)
+    }
+}
+
+fn split_attributes(attributes: &EvictedHashMap) -> (HashMap<String, String>, HashMap<String, f64>) {
+    let mut meta = HashMap::new();
+    let mut metrics = HashMap::new();
+
+    for (k, v) in attributes.iter() {
+        let metric_value = match v {
+            api::Value::Bool(b) => Some(*b as i64 as f64),
+            api::Value::I64(i) => Some(*i as f64),
+            api::Value::U64(u) => Some(*u as f64),
+            api::Value::F64(f) => Some(*f),
+            _ => None,
+        };
+
+        if let Some(metric_value) = metric_value {
+            metrics.insert(k.inner().to_string(), metric_value);
+        }
+
+        meta.insert(k.inner().to_string(), v.to_string());
+    }
+
+    (meta, metrics)
+}
+
+
 impl Exporter {
     pub fn builder() -> ExporterConfig {
         ExporterConfig::default()
+    }
+
+    fn convert_span(&self, s: &trace::SpanData) -> span::Span {
+        let (mut meta, metrics) = split_attributes(&s.attributes);
+        let name = meta
+            .get("span.name")
+            .map(String::clone)
+            .or_else(|| Some(s.name.clone()));
+        let service = meta.get("service.name").map(String::clone);
+        let resource = meta.get("resource.name").map(String::clone);
+        let span_type = meta.get("span.type").map(String::clone);
+        let start = duration_to_ns(s.start_time.duration_since(time::SystemTime::UNIX_EPOCH));
+        let duration = duration_to_ns(s.end_time.duration_since(s.start_time));
+
+        let mut error = 0;
+
+        match &s.status_code {
+            api::StatusCode::OK => (),
+            sc => {
+                error = 1;
+                meta.insert("error.type".to_string(), format!("StatusCode::{:?}", sc));
+                meta.insert("error.msg".to_string(), s.status_message.clone());
+            },
+        }
+
+        let span_kind = match s.span_kind {
+            api::SpanKind::Client => "client",
+            api::SpanKind::Server => "server",
+            api::SpanKind::Producer => "producer",
+            api::SpanKind::Consumer => "consumer",
+            api::SpanKind::Internal => "internal",
+        };
+
+        meta.insert("span.kind".to_string(), span_kind.to_string());
+
+        span::Span::builder()
+            .name(name)
+            .service(service)
+            .resource(resource)
+            .span_type(span_type)
+            .meta(meta)
+            .error(error)
+            .metrics(metrics)
+            .start(start)
+            .duration(duration)
+            .trace_id(s.context.trace_id().to_u128())
+            .span_id(s.context.span_id().to_u64())
+            .parent_id(s.parent_span_id.to_u64())
+            .build()
     }
 }
 
@@ -64,7 +166,7 @@ impl trace::SpanExporter for Exporter {
         // TODO: How to sampling?
 
         for span in batch.into_iter() {
-            let dd_span = span::Span::from(span.as_ref());
+            let dd_span = self.convert_span(span.as_ref());
             println!("{}", serde_json::to_string_pretty(&dd_span).unwrap());
         }
 

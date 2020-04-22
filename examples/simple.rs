@@ -1,5 +1,5 @@
 use opentelemetry::{
-    api::{ Provider, TracerGenerics},
+    api::{self, Provider, Span, TracerGenerics},
     global, sdk,
 };
 use opentelemetry_datadog::{Exporter};
@@ -22,4 +22,10 @@ fn main() {
     global::trace_provider()
         .get_tracer("component-main")
         .with_span("operation", move |_span| {});
+
+    global::trace_provider()
+        .get_tracer("component-main")
+        .with_span("error_operation", move |span| {
+            span.set_status(api::StatusCode::Internal, "Oops.".to_string())
+        });
 }
