@@ -1,5 +1,5 @@
 [package]
-name = "opentelemetry-rust-datadog"
+name = "opentelemetry-datadog"
 version = "0.1.0"
 authors = ["Sam Schlegel <git@lutin.us>"]
 edition = "2018"
