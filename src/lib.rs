@@ -14,22 +14,44 @@ pub struct Exporter {
 
 #[derive(Clone, Debug)]
 pub struct ExporterConfig {
-    pub service_name: String
+    service_name: String,
+    service_version: String,
+}
+
+impl ExporterConfig {
+    pub fn with_service_name<S: ToString>(self, service_name: S) -> Self {
+        ExporterConfig {
+            service_name: service_name.to_string(),
+            ..self
+        }
+    }
+
+    pub fn with_service_version<S: ToString>(self, service_version: S) -> Self {
+        ExporterConfig {
+            service_version: service_version.to_string(),
+            ..self
+        }
+    }
+
+    pub fn build(self) -> Exporter {
+        Exporter {
+            config: self,
+        }
+    }
 }
 
 impl Default for ExporterConfig {
     fn default() -> Self {
         ExporterConfig {
             service_name: "DEFAULT".to_string(),
+            service_version: "0.0.0".to_string(),
         }
     }
 }
 
 impl Exporter {
-    pub fn from_config(config: ExporterConfig) -> Self {
-        Exporter {
-            config
-        }
+    pub fn builder() -> ExporterConfig {
+        ExporterConfig::default()
     }
 }
 

@@ -1,0 +1,11 @@
+[package]
+name = "helloworld-tracing"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.2"
+tracing-opentelemetry = "0.3"
+opentelemetry = { version = "0.4", default-features = false, features = ["trace"] }
+opentelemetry-datadog = { path = "../.." }

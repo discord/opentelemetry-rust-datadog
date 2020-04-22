@@ -2,11 +2,11 @@ use opentelemetry::{
     api::{ Provider, TracerGenerics},
     global, sdk,
 };
-use opentelemetry_datadog::{Exporter, ExporterConfig};
+use opentelemetry_datadog::{Exporter};
 
 fn main() {
     // Create datadog exporter to be able to retrieve the collected spans.
-    let exporter = Exporter::from_config(ExporterConfig::default());
+    let exporter = Exporter::builder().build();
 
     // For the demonstration, use `Sampler::Always` sampler to sample all traces. In a production
     // application, use `Sampler::Parent` or `Sampler::Probability` with a desired probability.
