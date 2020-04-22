@@ -76,6 +76,7 @@ fn split_attributes(attributes: &EvictedHashMap) -> (HashMap<String, String>, Ha
 
     (meta, metrics)
 }
+
 impl From<&trace::SpanData> for Span {
     fn from(span_data: &trace::SpanData) -> Self {
         let (mut meta, metrics) = split_attributes(&span_data.attributes);
@@ -98,6 +99,16 @@ impl From<&trace::SpanData> for Span {
                 meta.insert("status_code".to_string(), format!("{:?}", sc));
             },
         }
+
+        let span_kind = match span_data.span_kind {
+            api::SpanKind::Client => "client",
+            api::SpanKind::Server => "server",
+            api::SpanKind::Producer => "producer",
+            api::SpanKind::Consumer => "consumer",
+            api::SpanKind::Internal => "internal",
+        };
+
+        meta.insert("span.kind".to_string(), span_kind.to_string());
 
         // TODO: Include the follow span_data data
         //       * status_message

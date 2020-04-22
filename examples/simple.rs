@@ -1,5 +1,5 @@
 use opentelemetry::{
-    api::{Key, Provider, Span, TracerGenerics},
+    api::{ Provider, TracerGenerics},
     global, sdk,
 };
 use opentelemetry_rust_datadog::Exporter;
@@ -19,11 +19,7 @@ fn main() {
         .build();
     global::set_provider(provider);
 
-    let span_kind_key = Key::new("span.kind");
-
     global::trace_provider()
         .get_tracer("component-main")
-        .with_span("operation", move |span| {
-            span.set_attribute(span_kind_key.string("test"));
-        });
+        .with_span("operation", move |_span| {});
 }
