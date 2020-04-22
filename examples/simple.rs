@@ -2,11 +2,11 @@ use opentelemetry::{
     api::{ Provider, TracerGenerics},
     global, sdk,
 };
-use opentelemetry_rust_datadog::Exporter;
+use opentelemetry_rust_datadog::{Exporter, ExporterConfig};
 
 fn main() {
-    // Create stdout exporter to be able to retrieve the collected spans.
-    let exporter = Exporter::default();
+    // Create datadog exporter to be able to retrieve the collected spans.
+    let exporter = Exporter::from_config(ExporterConfig::default());
 
     // For the demonstration, use `Sampler::Always` sampler to sample all traces. In a production
     // application, use `Sampler::Parent` or `Sampler::Probability` with a desired probability.
