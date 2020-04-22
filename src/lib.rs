@@ -2,12 +2,12 @@ use crate::model::span;
 use opentelemetry::api;
 use opentelemetry::exporter::trace;
 use opentelemetry::sdk::trace::evicted_hash_map::EvictedHashMap;
+use serde_json;
 use std::any::Any;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time;
-use serde_json;
 
 pub mod model;
 
@@ -40,10 +40,7 @@ impl ExporterConfig {
     }
 
     pub fn with_trace_addr(self, trace_addr: SocketAddr) -> Self {
-        ExporterConfig {
-            trace_addr,
-            ..self
-        }
+        ExporterConfig { trace_addr, ..self }
     }
 
     pub fn with_global_tags(self, global_tags: HashMap<String, String>) -> Self {
@@ -54,9 +51,7 @@ impl ExporterConfig {
     }
 
     pub fn build(self) -> Exporter {
-        Exporter {
-            config: self,
-        }
+        Exporter { config: self }
     }
 }
 
@@ -74,11 +69,13 @@ impl Default for ExporterConfig {
 fn duration_to_ns(r: Result<time::Duration, time::SystemTimeError>) -> i64 {
     match r {
         Ok(d) => d.as_nanos().min(std::i64::MAX as u128) as i64,
-        Err(e) => -(e.duration().as_nanos().min(std::i64::MAX as u128) as i64)
+        Err(e) => -(e.duration().as_nanos().min(std::i64::MAX as u128) as i64),
     }
 }
 
-fn split_attributes(attributes: &EvictedHashMap) -> (HashMap<String, String>, HashMap<String, f64>) {
+fn split_attributes(
+    attributes: &EvictedHashMap,
+) -> (HashMap<String, String>, HashMap<String, f64>) {
     let mut meta = HashMap::new();
     let mut metrics = HashMap::new();
 
@@ -100,7 +97,6 @@ fn split_attributes(attributes: &EvictedHashMap) -> (HashMap<String, String>, Ha
 
     (meta, metrics)
 }
-
 
 impl Exporter {
     pub fn builder() -> ExporterConfig {
@@ -127,7 +123,7 @@ impl Exporter {
                 error = 1;
                 meta.insert("error.type".to_string(), format!("StatusCode::{:?}", sc));
                 meta.insert("error.msg".to_string(), s.status_message.clone());
-            },
+            }
         }
 
         let span_kind = match s.span_kind {
@@ -158,10 +154,7 @@ impl Exporter {
 }
 
 impl trace::SpanExporter for Exporter {
-    fn export(
-        &self,
-        batch: Vec<Arc<trace::SpanData>>,
-    ) -> trace::ExportResult {
+    fn export(&self, batch: Vec<Arc<trace::SpanData>>) -> trace::ExportResult {
         // TODO: What kind of headers matter?
         // TODO: How to sampling?
 

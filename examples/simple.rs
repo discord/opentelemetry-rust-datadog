@@ -2,7 +2,7 @@ use opentelemetry::{
     api::{self, Provider, Span, TracerGenerics},
     global, sdk,
 };
-use opentelemetry_datadog::{Exporter};
+use opentelemetry_datadog::Exporter;
 
 fn main() {
     // Create datadog exporter to be able to retrieve the collected spans.
