@@ -10,6 +10,7 @@ use std::time;
 use tracing::{info, trace, error};
 
 pub mod model;
+pub mod propagation;
 pub(crate) mod uploader;
 
 #[derive(Debug)]
