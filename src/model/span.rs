@@ -2,6 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use typed_builder::TypedBuilder;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Batch(pub Vec<PartialTrace>);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PartialTrace(pub Vec<Span>);
+
 #[derive(TypedBuilder, Serialize, Deserialize, Debug, Clone)]
 pub struct Span {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,10 +38,8 @@ pub struct Span {
     /// duration of the span in nanoseconds
     pub duration: i64,
 
-    /// identifier of the root span
-    /// FIXME: I think datadog expects this to be the spanid of the root span, not a general trace id
-    ///        and it expects u64
-    pub trace_id: u128,
+    /// identifier of the trace
+    pub trace_id: u64,
     /// identifier of this span
     pub span_id: u64,
     /// identifier of the span's direct parent

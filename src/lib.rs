@@ -2,18 +2,21 @@ use crate::model::span;
 use opentelemetry::api;
 use opentelemetry::exporter::trace;
 use opentelemetry::sdk::trace::evicted_hash_map::EvictedHashMap;
-use serde_json;
 use std::any::Any;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time;
+use tracing::{info, trace, error};
 
 pub mod model;
+pub(crate) mod uploader;
 
 #[derive(Debug)]
 pub struct Exporter {
     config: ExporterConfig,
+    uploader: uploader::Uploader,
+
 }
 
 #[derive(Clone, Debug)]
@@ -51,7 +54,13 @@ impl ExporterConfig {
     }
 
     pub fn build(self) -> Exporter {
-        Exporter { config: self }
+        let uploader = uploader::Uploader::new(
+                self.trace_addr.clone(),
+            );
+        Exporter {
+            config: self,
+            uploader,
+        }
     }
 }
 
@@ -114,6 +123,7 @@ impl Exporter {
         let span_type = meta.get("span.type").map(String::clone);
         let start = duration_to_ns(s.start_time.duration_since(time::SystemTime::UNIX_EPOCH));
         let duration = duration_to_ns(s.end_time.duration_since(s.start_time));
+        let trace_id = s.context.trace_id().to_u128() as u64;
 
         let mut error = 0;
 
@@ -146,7 +156,7 @@ impl Exporter {
             .metrics(metrics)
             .start(start)
             .duration(duration)
-            .trace_id(s.context.trace_id().to_u128())
+            .trace_id(trace_id)
             .span_id(s.context.span_id().to_u64())
             .parent_id(s.parent_span_id.to_u64())
             .build()
@@ -155,18 +165,38 @@ impl Exporter {
 
 impl trace::SpanExporter for Exporter {
     fn export(&self, batch: Vec<Arc<trace::SpanData>>) -> trace::ExportResult {
+        trace!("exporting batch");
         // TODO: What kind of headers matter?
         // TODO: How to sampling?
 
+        // Group into partial traces
+        let mut partial_traces = HashMap::new();
+
         for span in batch.into_iter() {
             let dd_span = self.convert_span(span.as_ref());
-            println!("{}", serde_json::to_string_pretty(&dd_span).unwrap());
+            let partial_trace = partial_traces.entry(dd_span.trace_id).or_insert_with(|| Vec::new());
+            partial_trace.push(dd_span);
         }
 
-        trace::ExportResult::Success
+        let mut dd_batch = span::Batch(Vec::new());
+
+        for (_, partial_trace) in partial_traces.into_iter() {
+            dd_batch.0.push(span::PartialTrace(partial_trace));
+        }
+
+        let res = self.uploader.upload(dd_batch);
+        match res {
+            trace::ExportResult::Success => (),
+            _ => {
+                error!("export failed: {:?}", res);
+            },
+        };
+        res
     }
 
-    fn shutdown(&self) {}
+    fn shutdown(&self) {
+        info!("shutting down");
+    }
 
     fn as_any(&self) -> &dyn Any {
         self
