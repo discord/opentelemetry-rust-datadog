@@ -12,6 +12,7 @@ async fn main() {
         .with_trace_addr("127.0.0.1:3022".parse().unwrap())
         .build();
 
+    // Batching is required to offload from the main thread
     let batch =
         sdk::BatchSpanProcessor::builder(exporter, tokio::spawn, tokio::time::interval).build();
 
@@ -45,6 +46,7 @@ async fn main() {
             span.set_status(api::StatusCode::Internal, "Oops.".to_string())
         });
 
+    // We must delay here due until https://github.com/open-telemetry/opentelemetry-rust/issues/90 is fixed
     tokio::time::delay_for(tokio::time::Duration::from_secs(10)).await;
 
 }
