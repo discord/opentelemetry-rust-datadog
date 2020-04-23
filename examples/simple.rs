@@ -46,7 +46,7 @@ async fn main() {
             span.set_status(api::StatusCode::Internal, "Oops.".to_string())
         });
 
-    // We must delay here due until https://github.com/open-telemetry/opentelemetry-rust/issues/90 is fixed
+    // We must delay here until https://github.com/open-telemetry/opentelemetry-rust/issues/90 is fixed
     tokio::time::delay_for(tokio::time::Duration::from_secs(10)).await;
 
 }
