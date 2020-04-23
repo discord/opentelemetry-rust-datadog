@@ -23,6 +23,10 @@ enum ExtractError {
 pub struct DatadogPropagator {}
 
 impl DatadogPropagator {
+    pub fn new() -> Self {
+        DatadogPropagator {}
+    }
+
     fn extract_trace_id(&self, trace_id: &str) -> Result<api::TraceId, ExtractError> {
         u64::from_str_radix(trace_id, 10)
             .map(|id| api::TraceId::from_u128(id as u128))

@@ -119,7 +119,10 @@ impl Exporter {
             .get("span.name")
             .map(String::clone)
             .or_else(|| Some(s.name.clone()));
-        let service = meta.get("service.name").map(String::clone);
+        let service = Some(meta
+            .get("service.name")
+            .unwrap_or(&self.config.service_name)
+            .clone());
         let resource = meta.get("resource.name").map(String::clone);
         let span_type = meta.get("span.type").map(String::clone);
         let start = duration_to_ns(s.start_time.duration_since(time::SystemTime::UNIX_EPOCH));
@@ -146,6 +149,7 @@ impl Exporter {
         };
 
         meta.insert("span.kind".to_string(), span_kind.to_string());
+        meta.insert("service_version".to_string(), self.config.service_version.clone());
 
         span::Span::builder()
             .name(name)
