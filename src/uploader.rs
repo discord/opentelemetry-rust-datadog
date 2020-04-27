@@ -22,7 +22,7 @@ impl Uploader {
     }
 
     pub fn upload(&self, batch: span::Batch) -> trace::ExportResult {
-        let datadog_msgpack = match rmp_serde::to_vec(&batch) {
+        let datadog_msgpack = match rmp_serde::to_vec_named(&batch) {
             Ok(m) => m,
             Err(_) => return trace::ExportResult::FailedNotRetryable,
         };
