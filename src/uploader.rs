@@ -22,15 +22,15 @@ impl Uploader {
     }
 
     pub fn upload(&self, batch: span::Batch) -> trace::ExportResult {
-        let datadog_json = match serde_json::to_string(&batch) {
-            Ok(json) => json,
+        let datadog_msgpack = match rmp_serde::to_vec(&batch) {
+            Ok(m) => m,
             Err(_) => return trace::ExportResult::FailedNotRetryable,
         };
 
         let fut = self.client
             .post(&self.trace_endpoint)
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(datadog_json)
+            .header(reqwest::header::CONTENT_TYPE, "application/msgpack")
+            .body(datadog_msgpack)
             .send();
 
         // We spawn in a thread and ignore the result in order to not block the main thread 
